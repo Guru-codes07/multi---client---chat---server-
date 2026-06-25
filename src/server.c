@@ -79,20 +79,24 @@ void* handle_client(void* arg)
     
     // reuse port
     int opt=1;
-    setsockopt(server_socket,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt));
+    if(setsockopt(server_socket,SOL_SOCKET,SO_REUSEADDR,&opt,sizeof(opt))<0)
+    {
+       perror("setsockopt failed");
+       return 2;
+    }   
     
     // binding the socket
     if(bind(server_socket,(struct sockaddr* )&server_addr,sizeof(server_addr))<0)
     {
      perror("bind failed");
-     return 2;
+     return 3;
     }
     
     // listening for connections
     if(listen(server_socket,MAX_CLIENTS)<0)
     {
     perror("listen failed");
-    return 3;
+    return 4;
     }
     printf("server is listening on port %d.....\n",PORT);
     
