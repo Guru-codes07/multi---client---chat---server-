@@ -13,8 +13,7 @@
 
 // Thread function dedicated entirely to listening to the server
 void* receive_messages(void* arg) {
-    // Safely cast the void* value directly back into an integer descriptor
-    int client_socket = (int)(long)arg; 
+    int client_socket = *(int*)arg;
     char buffer[BUFFER_SIZE];
     
     while (1) {
@@ -27,8 +26,8 @@ void* receive_messages(void* arg) {
         }
         buffer[byte_received] = '\0';
         
-        // Print the message cleanly by returning to the start of the line (\r)
-        printf("\r%s", buffer);
+        // Print whatever background message came in (notifications or text from others)
+        printf("%s", buffer);
         printf("you: "); 
         fflush(stdout);
     }
@@ -72,10 +71,12 @@ int main() {
         return 0;
     }
     
+   
+      username[strcspn(username, "\n")] = '\0';
     // Send username immediately to server
     send(client_socket, username, strlen(username), 0);
     
-    username[strcspn(username, "\n")] = '\0';
+  
     printf("Welcome to the chatroom, %s!\n", username);
     printf("Type 'exit' to quit.\n\n");
 
