@@ -177,7 +177,7 @@ int main()
         continue;
       }
         
-      for(int i=0l;i<MAX_CLIENTS;i++)
+      for(int i=0;i<MAX_CLIENTS;i++)
       {
         if(client_sockets[i]==0)
         {

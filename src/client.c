@@ -80,10 +80,10 @@ int main() {
 
     // Spawn a background thread to handle incoming text asynchronously 
     pthread_t recv_thread;
-    pthread_create(&recv_thread, NULL, receive_messages, &client_socket);
+    pthread_create(&recv_thread, NULL, receive_messages, (void*)(long)client_socket);
     pthread_detach(recv_thread);
 
-    // --- MAIN SEND LOOP ---
+    // main loop
     while (1) {
         printf("you: ");
         fflush(stdout);
