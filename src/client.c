@@ -13,7 +13,8 @@
 
 // Thread function dedicated entirely to listening to the server
 void* receive_messages(void* arg) {
-    int client_socket = *(int*)arg;
+    // Safely cast the void* value directly back into an integer descriptor
+    int client_socket = (int)(long)arg; 
     char buffer[BUFFER_SIZE];
     
     while (1) {
@@ -26,8 +27,8 @@ void* receive_messages(void* arg) {
         }
         buffer[byte_received] = '\0';
         
-        // Print whatever background message came in (notifications or text from others)
-        printf("%s", buffer);
+        // Print the message cleanly by returning to the start of the line (\r)
+        printf("\r%s", buffer);
         printf("you: "); 
         fflush(stdout);
     }
