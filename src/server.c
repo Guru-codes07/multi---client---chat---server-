@@ -6,11 +6,12 @@
 #include<sys/types.h>
 #include<sys/socket.h>
 #include<netinet/in.h>
+
 #define PORT 8080
 #define BUFFER_SIZE 1024
 #define MAX_CLIENTS 5
 
-// Global variables2
+// Global variables
 int client_count = 0;
 int client_sockets[MAX_CLIENTS] = {0};
 
@@ -52,7 +53,7 @@ void* handle_client(void* arg)
     username[strcspn(username,"\n")] = '\0';
     
     // broadcasting to everyone that the user joined
-    snprintf(notification,sizeof(notification),"%s joined the chat!\n",username);
+    snprintf(notification,sizeof(notification),"📢 %s joined the chat!\n",username);
     printf("%s",notification);
     broadcast_message(notification,client_socket);
     
@@ -95,7 +96,7 @@ void* handle_client(void* arg)
     // critical section ends
 
     // broadcasting that they left
-    snprintf(notification,sizeof(notification),"%s left the chat.\n",username);
+    snprintf(notification,sizeof(notification),"❌ %s left the chat.\n",username);
     printf("%s",notification);
     broadcast_message(notification,0);
 
@@ -181,7 +182,8 @@ int main()
       {
         if(client_sockets[i]==0)
         {
-          client_socket[i] = *client_socket;
+          // FIXED: Changed client_socket to client_sockets (Added missing 's')
+          client_sockets[i] = *client_socket; 
           break;
         }
       }
@@ -210,7 +212,6 @@ int main()
        close(server_socket);
 
        return 0;
-
 }
 
 
