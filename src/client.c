@@ -1,87 +1,104 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
-#include<sys/types.h>
-#include<sys/socket.h>
-#include<arpa/inet.h>
-#include<netinet/in.h>
-#include<unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <pthread.h>
+
 #define PORT 8080
 #define BUFFER_SIZE 1024
-int main()
-{
+
+// Thread function dedicated entirely to listening to the server
+void* receive_messages(void* arg) {
+    int client_socket = *(int*)arg;
     char buffer[BUFFER_SIZE];
-    // initialising client socket
+    
+    while (1) {
+        memset(buffer, 0, BUFFER_SIZE);
+        int byte_received = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
+        if (byte_received <= 0)
+        {
+            printf("\nServer disconnected.\n");
+            exit(0); 
+        }
+        buffer[byte_received] = '\0';
+        
+        // Print whatever background message came in (notifications or text from others)
+        printf("%s", buffer);
+        printf("you: "); 
+        fflush(stdout);
+    }
+    return NULL;
+}
+
+int main() {
+    char buffer[BUFFER_SIZE];
+    char username[50];
     int client_socket;
 
-    // configuring server address
     struct sockaddr_in server_addr = {0};
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
     
-    // ip address as text to binary so that sockets can actually use it
-    if(inet_pton(AF_INET,"127.0.0.1",&server_addr.sin_addr)<=0)
-    {
+    if (inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0)
+     {
         perror("invalid error");
-        return 1;
+         return 1;
     }
     
-    // creating socket
-    client_socket = socket(AF_INET,SOCK_STREAM,0);
-    if(client_socket<0)
-    {
+    client_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (client_socket < 0) 
+    {    
         perror("socket failed");
-        return 2;
+         return 2;
     }
 
-    // connect with server 
-    if(connect(client_socket,(struct sockaddr *)&server_addr,sizeof(server_addr))<0)
-    {
+    if (connect(client_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+     {
         perror("connection failed");
-        close(client_socket);
-        return 3;
+        close(client_socket); 
+         return 3;
     }
     
-    printf("connected to the server.\n");
-    printf("type 'exit' to quit.\n");
-
-    while(1)
+    // --- USERNAME HANDSHAKE ---
+    printf("Enter your username: ");
+    if (fgets(username, sizeof(username), stdin) == NULL)
     {
-        memset(buffer,0,BUFFER_SIZE);
+        perror("error");   
+        return 0;
+    }
+    
+    // Send username immediately to server
+    send(client_socket, username, strlen(username), 0);
+    
+    username[strcspn(username, "\n")] = '\0';
+    printf("Welcome to the chatroom, %s!\n", username);
+    printf("Type 'exit' to quit.\n\n");
+
+    // Spawn a background thread to handle incoming text asynchronously 
+    pthread_t recv_thread;
+    pthread_create(&recv_thread, NULL, receive_messages, &client_socket);
+    pthread_detach(recv_thread);
+
+    // --- MAIN SEND LOOP ---
+    while (1) {
         printf("you: ");
-        if(fgets(buffer,BUFFER_SIZE,stdin)==NULL)
-        {
-            break;
-        }
-        if(strncmp(buffer,"exit",4)==0)
-        {
-            break;
-        }
+        fflush(stdout);
+        
+        if (fgets(buffer, BUFFER_SIZE, stdin) == NULL) break;
+        
+        if (strncmp(buffer, "exit", 4) == 0) break;
 
-        // send messages
-        if(send(client_socket,buffer,strlen(buffer),0)<0)
+        if (send(client_socket, buffer, strlen(buffer), 0) < 0) 
         {
-            perror("send failed");
+            perror("send failed"); 
             break;
         }
-
-        // clearing the garbage values again 
-        memset(buffer,0,BUFFER_SIZE);
-       
-        // receive messages
-        int byte_received;
-        byte_received = recv(client_socket,buffer,BUFFER_SIZE-1,0);
-        if(byte_received<=0)
-        {
-            printf("server disconnected.\n");
-            break;
-        }      
-        buffer[byte_received]='\0';
-        printf("server: %s",buffer);
     }
 
-        // closing the socket 
-        close(client_socket);
-         
+    close(client_socket);
     return 0;
 }
