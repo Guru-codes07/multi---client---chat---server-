@@ -26,7 +26,7 @@ void broadcast_message(const char* message, int sender_socket)
    {
      if(client_sockets[i]!=0 && client_sockets[i] != sender_socket) 
      {
-      send(client_sockets,message,strlen(message),0);
+      send(client_sockets[i],message,strlen(message),0);
      }
     }
    pthread_mutex_unlock(&lock);
@@ -49,7 +49,7 @@ void* handle_client(void* arg)
       close(client_socket);
       return NULL;
     }
-    username[strcpn(username,"\n")] = '\0';
+    username[strcspn(username,"\n")] = '\0';
     
     // broadcasting to everyone that the user joined
     snprintf(notification,sizeof(notification),"%s joined the chat!\n",username);
