@@ -13,7 +13,7 @@
 
 // Thread function dedicated entirely to listening to the server
 void* receive_messages(void* arg) {
-    int client_socket = *(int*)arg;
+    int client_socket = (int)(long)arg;
     char buffer[BUFFER_SIZE];
     
     while (1) {
