@@ -63,22 +63,45 @@ int main() {
          return 3;
     }
     
-    // --- USERNAME HANDSHAKE ---
-    printf("Enter your username: ");
-    if (fgets(username, sizeof(username), stdin) == NULL)
-    {
-        perror("error");   
-        return 0;
+    // User Name handshake:
+    while (1) {
+        printf("Enter your username: ");
+        if (fgets(username, sizeof(username), stdin) == NULL)
+        {
+            perror("error");
+            return 0;
+        }
+
+        username[strcspn(username, "\n")] = '\0';
+
+        char username_line[64];
+        snprintf(username_line, sizeof(username_line), "%s\n", username);
+        send(client_socket, username_line, strlen(username_line), 0);
+
+        // Wait for the server to actually confirm or reject this username,
+        // rather than assuming success locally. The server sends "OK\n" on
+        // acceptance, or a human-readable error (e.g. "already taken") that
+        // we just show the user before looping back to ask again.
+        char handshake_reply[BUFFER_SIZE];
+        int reply_len = recv(client_socket, handshake_reply, sizeof(handshake_reply) - 1, 0);
+        if (reply_len <= 0) {
+            printf("Server closed the connection during handshake.\n");
+            close(client_socket);
+            return 1;
+        }
+        handshake_reply[reply_len] = '\0';
+
+        if (strncmp(handshake_reply, "OK", 2) == 0) {
+            break; 
+        }
+
+        // Anything else is a rejection reason from the server; show it and retry
+        printf("%s", handshake_reply);
     }
-    
-   
-      username[strcspn(username, "\n")] = '\0';
-    // Send username immediately to server
-    send(client_socket, username, strlen(username), 0);
-    
-  
+
     printf("Welcome to the chatroom, %s!\n", username);
-    printf("Type 'exit' to quit.\n\n");
+    printf("Type 'exit' to quit.\n");
+    printf("Type '/who' to list online users, or '/w <username> <message>' to whisper.\n\n");
 
     // Spawn a background thread to handle incoming text asynchronously 
     pthread_t recv_thread;
@@ -91,8 +114,12 @@ int main() {
         fflush(stdout);
         
         if (fgets(buffer, BUFFER_SIZE, stdin) == NULL) break;
-        
-        if (strncmp(buffer, "exit", 4) == 0) break;
+
+        char trimmed_input[BUFFER_SIZE];
+        strncpy(trimmed_input, buffer, sizeof(trimmed_input) - 1);
+        trimmed_input[sizeof(trimmed_input) - 1] = '\0';
+        trimmed_input[strcspn(trimmed_input, "\n")] = '\0';
+        if (strcmp(trimmed_input, "exit") == 0) break;
 
         if (send(client_socket, buffer, strlen(buffer), 0) < 0) 
         {
