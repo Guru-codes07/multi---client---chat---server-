@@ -27,7 +27,7 @@ void* receive_messages(void* arg) {
         buffer[byte_received] = '\0';
         
         // Print whatever background message came in (notifications or text from others)
-        printf("\r%s", buffer);
+        printf("\r%s\n", buffer);
         printf("you: "); 
         fflush(stdout);
     }
