@@ -1,161 +1,187 @@
-# Multi-Client TCP Server in C
+# Multi-Client Chat Server
 
-A multi-threaded TCP server written in C using POSIX sockets and pthreads. This project demonstrates how to handle multiple client connections concurrently while maintaining thread safety using mutexes.
+A multi-client TCP chat server built in **C** using **POSIX sockets** and **POSIX threads (`pthreads`)**.
+
+Clients connect to the server, choose a username, and communicate with each other in real time. Each client is handled by a dedicated thread, and messages are broadcast to every connected client except the sender.
+
+---
 
 ## Features
 
-* Multi-client TCP server
-* Thread-per-client architecture
+* Multi-client support using POSIX threads
+* TCP/IP socket programming
+* Username handshake on connection
+* Real-time broadcast messaging
+* Join and leave notifications
+* Thread-safe shared resources using mutexes
+* Configurable maximum client limit
+* Graceful client disconnection handling
+* Modular project structure
+
+---
+
+## Technologies Used
+
+* C
+* POSIX Sockets
 * POSIX Threads (`pthread`)
-* Mutex-protected shared resources
-* Client connection limit enforcement
-* Echo server functionality
-* Dynamic memory management
-* Linux-compatible
+* Linux System Programming
+* GCC
+* Make
+
+---
 
 ## Project Structure
 
 ```text
-multi-client-chat/
+multi-client-chat-server/
 │
-├── README.md
-├── Makefile
+├── src/
+│   ├── server.c
+│   ├── client.c
+│   └── chat.h
 │
 ├── docs/
 │   ├── architecture.md
 │   └── learning-notes.md
 │
 ├── screenshots/
-│   └── README.md
 │
-└── src/
-    ├── chat.h
-    ├── server.c
-    └── client.c
+├── Makefile
+└── README.md
 ```
 
-## Technologies Used
-
-* C Programming Language
-* POSIX Sockets
-* POSIX Threads (pthreads)
-* Linux System Calls
-* GCC Compiler
+---
 
 ## How It Works
 
-1. The server creates a TCP socket.
-2. The socket is bound to a specified port.
-3. The server listens for incoming client connections.
-4. When a client connects, a new thread is created.
-5. Each thread handles communication with one client.
-6. Messages received from a client are sent back to the same client (Echo Server).
-7. A mutex protects the shared `client_count` variable from race conditions.
+1. The server starts and listens on port **8080**.
+2. A client connects to the server.
+3. The client sends a username.
+4. The server creates a dedicated thread for that client.
+5. When a client sends a message:
+
+   * The server receives it.
+   * The sender's username is prepended.
+   * The message is broadcast to all other connected clients.
+6. Join and leave notifications are automatically broadcast to all users.
+
+---
+
+## Architecture
+
+```text
+                    +----------------------+
+                    |      Server          |
+                    |----------------------|
+                    |  Listening Socket    |
+                    +----------+-----------+
+                               |
+          +--------------------+--------------------+
+          |                    |                    |
+          |                    |                    |
+   +-------+-------+    +-------+-------+    +-------+-------+
+   | Client Thread |    | Client Thread |    | Client Thread |
+   +-------+-------+    +-------+-------+    +-------+-------+
+           |                    |                    |
+        Client A             Client B             Client C
+```
+
+Each connected client is handled by its own thread, allowing multiple users to communicate simultaneously.
+
+---
 
 ## Building
 
-Compile the project using GCC:
-
-```bash
-gcc src/server.c -o server -lpthread
-gcc src/client.c -o client
-```
-
-Or use the Makefile:
+Compile the project using the provided Makefile.
 
 ```bash
 make
 ```
 
-## Running the Server
+---
+
+## Running
+
+Start the server:
 
 ```bash
 ./server
 ```
 
-Expected output:
-
-```text
-server is listening on port 8080.....
-```
-
-## Running the Client
-
-Open another terminal:
+In separate terminals, start one or more clients:
 
 ```bash
 ./client
 ```
 
-You can run multiple client instances simultaneously.
+---
 
 ## Example
 
-Client:
-
 ```text
-Hello Server
+Enter your username: Alice
+Welcome to the chatroom, Alice!
+
+Bob joined the chat.
+
+you: Hello everyone!
+
+Bob: Hi Alice!
+
+Charlie joined the chat.
+
+Charlie: Nice to meet you all!
+
+Bob left the chat.
 ```
 
-Server:
+---
 
-```text
-client[5] = Hello Server
-```
+## Concepts Demonstrated
 
-Response:
+* TCP Client-Server Architecture
+* Socket Programming
+* Concurrent Programming
+* POSIX Threads
+* Mutex Synchronization
+* Dynamic Memory Management
+* Thread-safe Shared Resources
+* Linux Network Programming
 
-```text
-Hello Server
-```
-
-## Thread Safety
-
-The server uses a mutex to protect access to the shared client counter:
-
-```c
-pthread_mutex_lock(&lock);
-client_count++;
-pthread_mutex_unlock(&lock);
-```
-
-This prevents race conditions when multiple threads attempt to modify the same variable.
-
-## Current Limitations
-
-* Echo server only
-* No usernames
-* No message broadcasting
-* No private messaging
-* No chat rooms
+---
 
 ## Future Improvements
 
-* Broadcast messages to all connected clients
-* Username support
-* Private messaging
-* Chat rooms
-* Logging system
-* Graceful server shutdown
-* Better error handling
+* Private messaging (`/msg`)
+* Chat rooms / channels
+* User list command (`/list`)
+* Server-side commands
+* Message timestamps
+* Colored terminal output
+* Persistent chat logs
+* Configuration file support
+* IPv6 support
+* TLS/SSL encryption
+* Replace thread-per-client model with `select()`, `poll()`, or `epoll()` for better scalability
+
+---
 
 ## Learning Objectives
 
-This project helped me learn:
+This project was built to gain practical experience with:
 
-* TCP/IP Networking
-* Socket Programming
-* Multi-threading with pthreads
-* Mutexes and Synchronization
-* Dynamic Memory Management
-* Concurrent Programming Concepts
-* Linux Systems Programming
+* Linux systems programming
+* Network programming in C
+* POSIX socket APIs
+* Multithreading using `pthread`
+* Synchronization using mutexes
+* Building concurrent server applications
 
-## Author
-
-Guru Prasad Mishra
+---
 
 ## License
 
-This project is open-source and available for learning and educational purposes.
+This project is intended for learning and educational purposes.
+
 
