@@ -2,355 +2,312 @@
 
 ## Overview
 
-This project implements a multi-client TCP echo server using POSIX sockets and POSIX threads (`pthreads`).
+This project implements a **multi-client TCP chat server** using **POSIX sockets** and **POSIX threads (`pthreads`)** on Linux.
 
-The server listens for incoming TCP connections on port `8080`. Each connected client is assigned a dedicated worker thread, allowing multiple clients to communicate with the server concurrently.
+The server listens for incoming TCP connections on port **8080**. Every connected client is assigned a dedicated thread, allowing multiple clients to communicate simultaneously.
 
-To ensure thread safety, a mutex is used to protect shared resources such as the active client counter.
+When a client connects, it sends a username to the server. Messages sent by a client are prefixed with the sender's username and broadcast to every other connected client. The server also announces when users join or leave the chat.
+
+Shared resources such as the client list and active client count are protected using a mutex to prevent race conditions.
 
 ---
 
-## High-Level Architecture
+# High-Level Architecture
 
 ```text
-                              +------------------+
-                              |    TCP Server    |
-                              |    Port: 8080    |
-                              +------------------+
-                                       |
-     -----------------------------------------------------------------
-     |              |              |              |                 |
-     v              v              v              v                 v
-
-+--------------+ +--------------+ +--------------+ +--------------+ +--------------+
-|   Client 1   | |   Client 2   | |   Client 3   | |   Client 4   | |   Client 5   |
-+--------------+ +--------------+ +--------------+ +--------------+ +--------------+
-       |                |                |                |                |
-       v                v                v                v                v
-
-+--------------+ +--------------+ +--------------+ +--------------+ +--------------+
-|   Thread 1   | |   Thread 2   | |   Thread 3   | |   Thread 4   | |   Thread 5   |
-+--------------+ +--------------+ +--------------+ +--------------+ +--------------+
+                         +----------------------+
+                         |      Server          |
+                         |----------------------|
+                         |  Listening Socket    |
+                         +----------+-----------+
+                                    |
+                +-------------------+-------------------+
+                |                   |                   |
+         accept()             accept()            accept()
+                |                   |                   |
+                ▼                   ▼                   ▼
+        +---------------+   +---------------+   +---------------+
+        | Client Thread |   | Client Thread |   | Client Thread |
+        +-------+-------+   +-------+-------+   +-------+-------+
+                |                   |                   |
+                ▼                   ▼                   ▼
+            Client A            Client B            Client C
 ```
 
-Each client connection is handled independently by its own thread.
-
-This architecture allows multiple clients to communicate with the server at the same time without blocking one another.
+Each client communicates independently with the server through its dedicated thread.
 
 ---
 
-## Server Startup Flow
+# Communication Flow
 
 ```text
-main()
-  |
-  +--> socket()
-  |
-  +--> setsockopt()
-  |
-  +--> bind()
-  |
-  +--> listen()
-  |
-  +--> accept()
-  |
-  +--> pthread_create()
+Client connects
+       │
+       ▼
+TCP Connection Established
+       │
+       ▼
+Client sends username
+       │
+       ▼
+Server stores username
+       │
+       ▼
+Server creates dedicated thread
+       │
+       ▼
+Client sends message
+       │
+       ▼
+Server receives message
+       │
+       ▼
+Prepends username
+       │
+       ▼
+Broadcasts message to all other connected clients
 ```
-
-### Startup Steps
-
-1. Create a TCP socket using `socket()`.
-2. Enable address reuse using `setsockopt()`.
-3. Bind the socket to port `8080`.
-4. Put the socket into listening mode.
-5. Accept incoming client connections.
-6. Create a worker thread for each connected client.
 
 ---
 
-## Connection Flow
+# Server Architecture
+
+The server consists of three primary components.
+
+## 1. Main Thread
+
+The main thread is responsible for:
+
+* Creating the listening socket
+* Binding to the server port
+* Listening for incoming connections
+* Accepting new clients
+* Creating a dedicated thread for each client
+* Tracking connected clients
+
+The main thread never handles chat messages directly.
+
+---
+
+## 2. Client Threads
+
+Each connected client is handled by an independent thread.
+
+Responsibilities include:
+
+* Receiving the client's username
+* Broadcasting join notifications
+* Receiving chat messages
+* Broadcasting messages to other clients
+* Detecting client disconnection
+* Broadcasting leave notifications
+* Cleaning up resources
+
+This design allows multiple clients to communicate concurrently.
+
+---
+
+## 3. Broadcast Module
+
+Whenever a client sends a message, the server forwards it to every connected client except the sender.
 
 ```text
-Main Thread
-     |
-     +--> accept() --> Client 1 --> Thread 1
-     |
-     +--> accept() --> Client 2 --> Thread 2
-     |
-     +--> accept() --> Client 3 --> Thread 3
-     |
-     +--> accept() --> Client 4 --> Thread 4
-     |
-     +--> accept() --> Client 5 --> Thread 5
+          Client A
+              │
+              ▼
+        "Hello everyone!"
+              │
+              ▼
+             Server
+        Broadcast Message
+          /           \
+         /             \
+        ▼               ▼
+    Client B       Client C
 ```
-
-The main thread never communicates with clients directly.
-
-Its sole responsibility is to accept new connections and create worker threads.
 
 ---
 
-## Thread Lifecycle
-
-When a client connects:
+# Thread Model
 
 ```text
-Client Connects
-       |
-       v
-accept()
-       |
-       v
-pthread_create()
-       |
-       v
-handle_client()
-       |
-       v
-recv() / send()
-       |
-       v
-Client Disconnects
-       |
-       v
-close()
+                Main Thread
+                     │
+          Accept Client Connection
+                     │
+                     ▼
+          Create Client Thread
+                     │
+        ┌────────────┴────────────┐
+        │                         │
+        ▼                         ▼
+ Client Thread A            Client Thread B
+        │                         │
+        ▼                         ▼
+ recv() / send()           recv() / send()
 ```
 
-Each worker thread performs the following tasks:
-
-* Receives messages from its client
-* Sends responses back to the client
-* Detects client disconnections
-* Closes the client socket
-* Updates the active client counter
+Each client thread operates independently, enabling simultaneous communication between multiple users.
 
 ---
 
-## Client Communication Flow
+# Synchronization
+
+The following resources are shared between all client threads:
+
+* `client_sockets[]`
+* `client_count`
+
+To prevent race conditions, a POSIX mutex protects these shared resources.
 
 ```text
-+----------+
-|  Client  |
-+----------+
-      |
-      | send()
-      v
-+----------+
-|  Thread  |
-+----------+
-      |
-      | recv()
-      v
-+----------+
-|  Buffer  |
-+----------+
-      |
-      | send()
-      v
-+----------+
-|  Client  |
-+----------+
+Thread A
+    │
+    ▼
+Lock Mutex
+    │
+Modify Shared Data
+    │
+Unlock Mutex
+
+        ▲
+
+Thread B waits until mutex becomes available.
 ```
 
-The current implementation functions as an Echo Server.
+The mutex is used when:
 
-Any message received from a client is immediately sent back to the same client.
+* Adding a newly connected client
+* Removing a disconnected client
+* Updating the active client count
+* Accessing the list of connected clients during broadcasting
 
 ---
 
-## Thread Safety
-
-The variable:
-
-```c
-client_count
-```
-
-is shared by multiple threads.
-
-Without synchronization, race conditions can occur when multiple threads attempt to modify it simultaneously.
-
-To prevent this issue, a mutex is used.
-
-```text
-Thread 1 ----\
-              \
-Thread 2 ------> Mutex ----> client_count
-              /
-Thread 3 ----/
-```
-
-Example:
-
-```c
-pthread_mutex_lock(&lock);
-
-client_count++;
-
-pthread_mutex_unlock(&lock);
-```
-
-Only one thread may enter the critical section at a time.
-
----
-
-## Connection Management
-
-The server restricts the number of active clients:
-
-```c
-#define MAX_CLIENTS 5
-```
-
-Connection policy:
-
-```text
-Client 1  ✓ Connected
-Client 2  ✓ Connected
-Client 3  ✓ Connected
-Client 4  ✓ Connected
-Client 5  ✓ Connected
-Client 6  ✗ Rejected
-```
-
-If the maximum number of clients has been reached:
-
-```text
-New Client
-    |
-    v
-Server Full
-    |
-    v
-Connection Rejected
-```
-
-The server sends an informational message and closes the connection.
-
----
-
-## Memory Management
-
-A separate socket descriptor is dynamically allocated for every client connection.
-
-```c
-int* client_socket = malloc(sizeof(int));
-```
-
-The descriptor is passed to the worker thread.
-
-Inside the thread:
-
-```c
-free(arg);
-```
-
-This ensures:
-
-* Each thread receives its own socket descriptor
-* No accidental sharing occurs
-* Memory leaks are avoided
-
----
-
-## Current Design
-
-The current communication model is:
+# Message Flow
 
 ```text
 Client
-   |
-   v
-Server
-   |
-   v
-Same Client
+   │
+   │ send()
+   ▼
+Server Thread
+   │
+   │ recv()
+   ▼
+Add Username
+   │
+   ▼
+Broadcast
+   │
+   ├────────► Client 1
+   ├────────► Client 2
+   └────────► Client 3
 ```
-
-Example:
-
-```text
-Client: Hello Server
-
-Server: Hello Server
-```
-
-This behavior classifies the application as a Multi-Client Echo Server.
 
 ---
 
-## Future Architecture (Broadcast Chat Server)
-
-A future enhancement is to transform the project into a real chat server.
-
-### Planned Architecture
+# Connection Lifecycle
 
 ```text
-                           +-----------+
-                           |  Server   |
-                           +-----------+
-                            /   |   \
-                           /    |    \
-                          v     v     v
-
-                    Client1 Client2 Client3
-                          \    |    /
-                           \   |   /
-                            \  |  /
-                             \ | /
-                            Client4
-                                |
-                                v
-                            Client5
+Client Starts
+      │
+      ▼
+Create Socket
+      │
+      ▼
+Connect to Server
+      │
+      ▼
+Send Username
+      │
+      ▼
+Exchange Messages
+      │
+      ▼
+Disconnect
+      │
+      ▼
+Server Removes Client
+      │
+      ▼
+Broadcast Leave Notification
 ```
-
-### Message Broadcast Flow
-
-```text
-Client1
-   |
-   v
- Server
- / | | \
-v  v v  v
-
-Client2
-Client3
-Client4
-Client5
-```
-
-When one client sends a message, the server will broadcast it to all other connected clients.
-
-Future features include:
-
-* Message broadcasting
-* Usernames
-* Private messaging
-* Chat rooms
-* Logging
-* Graceful shutdown
-* Improved error handling
 
 ---
 
-## Key Concepts Used
+# Client Architecture
 
-* TCP/IP Networking
-* Socket Programming
-* POSIX Threads (`pthreads`)
-* Mutex Synchronization
-* Dynamic Memory Allocation
-* Concurrent Programming
-* Client-Server Architecture
-* Linux Systems Programming
-* Multi-threaded Server Design
+Each client process consists of two execution paths.
+
+## Main Thread
+
+Responsible for:
+
+* Connecting to the server
+* Reading user input
+* Sending chat messages
+
+## Receiver Thread
+
+Responsible for:
+
+* Continuously listening for incoming messages
+* Displaying chat messages
+* Displaying join and leave notifications
+
+```text
+                Client Process
+                     │
+        ┌────────────┴────────────┐
+        │                         │
+        ▼                         ▼
+ Main Thread              Receiver Thread
+(User Input)             (Server Messages)
+        │                         │
+        ▼                         ▼
+      send()                   recv()
+```
 
 ---
 
-## Summary
+# Key Design Decisions
 
-This project demonstrates the implementation of a thread-per-client TCP server in C.
+* One thread per client simplifies concurrent communication.
+* A mutex protects shared server resources.
+* Usernames are exchanged immediately after connection.
+* Messages are broadcast to all connected clients except the sender.
+* Dynamic memory allocation ensures each client thread owns its socket descriptor.
+* Detached threads eliminate the need for explicit thread joining.
 
-The server accepts multiple client connections simultaneously, creates a dedicated thread for each client, uses mutexes for thread safety, and provides a foundation for future development into a complete multi-user chat application.
+---
+
+# Current Limitations
+
+* Uses a thread-per-client model, which is suitable for small to medium numbers of clients.
+* TCP is treated as a message stream without explicit message framing.
+* Chat history is not persisted.
+* No authentication or encryption.
+* IPv4 only.
+* Terminal output may overlap when multiple users send messages simultaneously.
+
+---
+
+# Future Enhancements
+
+* Private messaging between users
+* Chat rooms or channels
+* Message timestamps
+* User list command (`/list`)
+* Graceful server shutdown and improved error handling
+* Event-driven I/O using `select()` or `epoll()` for better scalability
+
+
+
+---
+
+# Summary
+
+This project demonstrates the implementation of a concurrent TCP chat server using POSIX sockets and POSIX threads. It showcases core Linux systems programming concepts, including socket programming, multithreading, synchronization with mutexes, dynamic memory management, and concurrent client-server communication.
+
 
