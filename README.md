@@ -8,26 +8,26 @@ Clients connect to the server, choose a username, and communicate with each othe
 
 ## Features
 
-* Multi-client support using POSIX threads
-* TCP/IP socket programming
-* Username handshake on connection
-* Real-time broadcast messaging
-* Join and leave notifications
-* Thread-safe shared resources using mutexes
-* Configurable maximum client limit
-* Graceful client disconnection handling
-* Modular project structure
+- Multi-client support using POSIX threads
+- TCP/IP socket programming
+- Username handshake on connection
+- Real-time broadcast messaging
+- Join and leave notifications
+- Thread-safe shared resources using mutexes
+- Configurable maximum client limit
+- Graceful client disconnection handling
+- Modular project structure
 
 ---
 
 ## Technologies Used
 
-* C
-* POSIX Sockets
-* POSIX Threads (`pthread`)
-* Linux System Programming
-* GCC
-* Make
+- C
+- POSIX Sockets
+- POSIX Threads (`pthread`)
+- Linux System Programming
+- GCC
+- Make
 
 ---
 
@@ -37,9 +37,10 @@ Clients connect to the server, choose a username, and communicate with each othe
 multi-client-chat-server/
 │
 ├── src/
-│   ├── server.c
-│   ├── client.c
-│   └── chat.h
+│   ├── server.c      # Server implementation
+│   ├── client.c      # Client implementation
+│   ├── chat.c        # Shared chat utility functions
+│   └── chat.h        # Shared declarations
 │
 ├── docs/
 │   ├── architecture.md
@@ -60,10 +61,9 @@ multi-client-chat-server/
 3. The client sends a username.
 4. The server creates a dedicated thread for that client.
 5. When a client sends a message:
-
-   * The server receives it.
-   * The sender's username is prepended.
-   * The message is broadcast to all other connected clients.
+   - The server receives it.
+   - The sender's username is prepended.
+   - The message is broadcast to all other connected clients.
 6. Join and leave notifications are automatically broadcast to all users.
 
 ---
@@ -140,30 +140,23 @@ Bob left the chat.
 
 ## Concepts Demonstrated
 
-* TCP Client-Server Architecture
-* Socket Programming
-* Concurrent Programming
-* POSIX Threads
-* Mutex Synchronization
-* Dynamic Memory Management
-* Thread-safe Shared Resources
-* Linux Network Programming
+- TCP Client-Server Architecture
+- Socket Programming
+- Concurrent Programming
+- POSIX Threads
+- Mutex Synchronization
+- Dynamic Memory Management
+- Thread-safe Shared Resources
+- Linux Network Programming
 
 ---
 
 ## Future Improvements
 
-* Private messaging (`/msg`)
-* Chat rooms / channels
-* User list command (`/list`)
-* Server-side commands
-* Message timestamps
-* Colored terminal output
-* Persistent chat logs
-* Configuration file support
-* IPv6 support
-* TLS/SSL encryption
-* Replace thread-per-client model with `select()`, `poll()`, or `epoll()` for better scalability
+- Private messaging (`/msg`)
+- Chat rooms
+- User list command (`/list`)
+- Replace the thread-per-client model with `select()` or `poll()` for better scalability
 
 ---
 
@@ -171,12 +164,12 @@ Bob left the chat.
 
 This project was built to gain practical experience with:
 
-* Linux systems programming
-* Network programming in C
-* POSIX socket APIs
-* Multithreading using `pthread`
-* Synchronization using mutexes
-* Building concurrent server applications
+- Linux systems programming
+- Network programming in C
+- POSIX socket APIs
+- Multithreading using `pthread`
+- Synchronization using mutexes
+- Building concurrent server applications
 
 ---
 
